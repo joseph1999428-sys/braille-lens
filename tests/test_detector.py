@@ -20,6 +20,12 @@ def test_sparse_cells_and_word_gaps():
     assert result.text == "A B C"
 
 
+def test_sparse_capitalized_letters_keep_the_indicator_cell():
+    for letter in "ABCDE":
+        result = detect_braille(render_braille(letter), OCRConfig())
+        assert result.text == letter
+
+
 def test_inverted_photo_mode():
     image = np.asarray(render_braille("Test 42"))
     result = detect_braille(255 - image, OCRConfig(threshold_mode="adaptive", invert=True))

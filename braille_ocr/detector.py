@@ -169,6 +169,14 @@ def _row_layout(dots: list[Dot], radius: float) -> tuple[list[list[Dot]], list[l
     # Braille block while retaining low-resolution photographs.
     row_candidates = gaps[(gaps >= radius * 2.5) & (gaps <= radius * 8.0)]
     dy = _modal_pitch(row_candidates if len(row_candidates) else gaps, max(radius * 3.0, 1.0))
+    # A sparse cell can contain only top and bottom dots (for example the
+    # capital indicator plus ``a``). Their observed gap is two row pitches,
+    # so insert the missing middle row instead of treating them as adjacent.
+    if len(row_centers) == 2 and len(dots) <= 4 and float(gaps[0]) > radius * 4.0:
+        midpoint = (row_centers[0] + row_centers[1]) / 2.0
+        dy = float(gaps[0]) / 2.0
+        row_centers = [row_centers[0], midpoint, row_centers[1]]
+        gaps = np.diff(row_centers)
     # Split row-center runs at the larger gap between Braille text lines. A
     # handwritten heading can create several extra centers inside one run, so
     # each run is reduced to the best-fitting three-row Braille pattern.
@@ -241,8 +249,15 @@ def _line_cells(
     # A gap within a cell is approximately one dx. The next cell starts after
     # a larger gap, so this ratio separates cells even when a dot is missing.
     groups: list[list[float]] = [[x_columns[0]]]
+    within_cell_limit = config.cell_gap_ratio * dx
+    # On a very sparse line, the gap from a right-column dot in one cell to a
+    # left-column dot in the next can be larger than the within-cell estimate.
+    # Use the dot radius as a second bound so capital indicators and one-dot
+    # letters remain separate cells.
+    if len(dots) <= 6:
+        within_cell_limit = min(within_cell_limit, radius * 4.0)
     for x, gap in zip(x_columns[1:], np.diff(x_columns)):
-        if gap <= config.cell_gap_ratio * dx:
+        if gap <= within_cell_limit:
             groups[-1].append(x)
         else:
             groups.append([x])
@@ -330,6 +345,26 @@ def _line_cells(
             )
         )
         anchors.append(anchor)
+
+    # Sparse capitalized one-letter words can present as two isolated dots
+    # with no within-cell pair from which to infer the horizontal phase. When
+    # the bottom-row dot precedes a top/middle-row dot, the Braille convention
+    # identifies the former as the right-column capital indicator and the
+    # latter as the left-column letter.
+    if len(dots) <= 3 and len(cells) == 2 and any(cell.dot_count == 1 for cell in cells):
+        ordered = sorted(cells, key=lambda cell: cell.x)
+        row_sets = [set(bit % 3 for bit in range(6) if cell.mask & (1 << bit)) for cell in ordered]
+        sparse_capital = all(cell.dot_count == 1 for cell in ordered)
+        two_dot_letter = any(
+            cell.dot_count == 2 and len(rows) == 2 and ((cell.mask & 0b111) == 0 or (cell.mask & 0b111000) == 0)
+            for cell, rows in zip(ordered, row_sets)
+        )
+        if (sparse_capital or two_dot_letter) and any(2 in rows for rows in row_sets) and any(rows and max(rows) < 2 for rows in row_sets):
+            for cell, rows in zip(ordered, row_sets):
+                if not rows:
+                    continue
+                column = 1 if 2 in rows else 0
+                cell.mask = sum(1 << (row + (3 if column else 0)) for row in rows)
 
     # Add inferred blank cells for word-sized gaps. A blank is represented in
     # the same stream as an ordinary cell and is later rendered as a space.
