@@ -34,6 +34,14 @@ def test_grade_two_common_word_contraction():
     assert confidence == 1.0
 
 
+def test_grade_two_whole_word_contractions_are_contextual():
+    # "but" uses the same cell as Grade 1 b, but only contracts as a
+    # standalone Grade 2 word.
+    cells = [Cell(LETTER_TO_MASK["b"], 0, 0, 0, 1.0)]
+    assert decode_cells(cells, grade="Grade 1")[0] == "b"
+    assert decode_cells(cells, grade="Grade 2")[0] == "but"
+
+
 def test_punctuation_keeps_its_symbol():
     cells = [Cell(PUNCTUATION_TO_MASK["!"], 0, 0, 0, 1.0)]
     text, confidence = decode_cells(cells)

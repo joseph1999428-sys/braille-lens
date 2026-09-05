@@ -11,6 +11,7 @@ from .alphabet import (
     MASK_TO_LETTER,
     MASK_TO_PUNCTUATION,
     NUMBER_MASK,
+    KNOWN_MASKS,
 )
 from .models import Cell
 
@@ -102,8 +103,9 @@ def decode_cells(cells: Iterable[Cell], grade: str = "Grade 1") -> tuple[str, fl
     that only want to translate known masks in tests or another UI.
     """
 
+    cell_list = list(cells)
     by_line: dict[int, list[Cell]] = {}
-    for cell in cells:
+    for cell in cell_list:
         by_line.setdefault(cell.line_index, []).append(cell)
 
     lines: list[str] = []
@@ -133,4 +135,11 @@ def decode_cells(cells: Iterable[Cell], grade: str = "Grade 1") -> tuple[str, fl
         lines.append("".join(line_parts).strip())
 
     text = "\n".join(lines).strip()
-    return text, (recognized / total if total else 0.0)
+    coverage = recognized / total if total else 0.0
+    weighted = sum(
+        max(0.1, float(cell.confidence)) * (1.0 if cell.mask in KNOWN_MASKS else 0.0)
+        for cell in cell_list if not cell.is_space
+    )
+    weight_total = sum(max(0.1, float(cell.confidence)) for cell in cell_list if not cell.is_space)
+    table_coverage = weighted / weight_total if weight_total else 0.0
+    return text, (0.65 * coverage + 0.35 * table_coverage)

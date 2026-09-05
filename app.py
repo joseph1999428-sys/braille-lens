@@ -91,7 +91,13 @@ if source is not None:
             invert=invert,
         )
         with st.spinner("Reading the Braille picture…"):
-            result = detect_braille(source, config=config, grade=grade)
+            try:
+                result = detect_braille(source, config=config, grade=grade)
+            except Exception as error:  # pragma: no cover - UI-only error path
+                st.error(f"Could not translate this picture: {error}")
+                result = None
+        if result is None:
+            st.stop()
         st.session_state["last_result"] = result
         source_id = hashlib.sha256(picture_bytes).hexdigest() if picture is not None else "demo"
         st.session_state["result_source"] = source_id
@@ -108,6 +114,13 @@ if result is not None:
     st.divider()
     st.subheader("English translation")
     if result.text:
+        if result.warnings:
+            for warning in result.warnings:
+                st.warning(warning)
+        if result.confidence < 0.65:
+            st.warning("Overall confidence is low. Retake the picture with the page flat, in focus, and evenly lit.")
+        if "□" in result.text:
+            st.info("Squares mark cells that could not be read confidently. Review the image and edit the transcription before downloading.")
         edited_text = st.text_area(
             "You can edit the translation before downloading it.",
             value=result.text,
@@ -127,6 +140,7 @@ if result is not None:
 
     with st.expander("Recognition details", expanded=False):
         st.write(f"Confidence: **{result.confidence:.0%}**")
+        st.caption("The confidence score measures dot geometry and Braille table coverage; it is not a language correction score.")
         st.json(result.diagnostics)
         if result.annotated is not None:
             st.image(result.annotated, caption="OpenCV detection preview", use_container_width=True)

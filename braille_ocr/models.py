@@ -14,7 +14,7 @@ class OCRConfig:
     that a 300 dpi scan and a phone photo can use the same defaults.
     """
 
-    threshold_mode: str = "otsu"  # otsu | adaptive
+    threshold_mode: str = "otsu"  # otsu | adaptive | local_contrast
     invert: bool = False
     min_component_area: int = 8
     max_component_area: int = 100000
@@ -48,6 +48,7 @@ class Cell:
     confidence: float
     is_space: bool = False
     dot_count: int = 0
+    uncertain: bool = False
 
 
 @dataclass
@@ -59,3 +60,6 @@ class OCRResult:
     annotated: Any = None
     confidence: float = 0.0
     diagnostics: dict[str, Any] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    rejected_components: int = 0
+    ambiguous_cells: list[int] = field(default_factory=list)

@@ -67,6 +67,7 @@ PUNCTUATION_TO_MASK = {
     "@": dots(4),
     "+": dots(3, 4, 6),
     "=": dots(2, 3, 5, 6),
+    "_": dots(4, 5, 6),
 }
 
 # Some literary and mathematical symbols share a cell in UEB and are resolved
@@ -99,6 +100,31 @@ COMMON_WORD_CONTRACTIONS = {
     dots(1, 2, 3, 4, 6): "and",
     dots(1, 2, 3, 4, 5, 6): "for",
     dots(2, 3, 4, 6): "the",
+    # UEB single-cell whole-word contractions. They are applied only when a
+    # cell is a complete word (see translator.py), so ordinary letters remain
+    # unchanged inside longer words.
+    dots(1, 2): "but",
+    dots(1, 4): "can",
+    dots(1, 4, 5): "do",
+    dots(1, 5): "every",
+    dots(1, 2, 4): "from",
+    dots(1, 2, 4, 5): "go",
+    dots(1, 2, 5): "have",
+    dots(2, 4, 5): "just",
+    dots(1, 3): "knowledge",
+    dots(1, 2, 3): "like",
+    dots(1, 3, 4): "more",
+    dots(1, 3, 4, 5): "not",
+    dots(1, 2, 3, 4): "people",
+    dots(1, 2, 3, 4, 5): "quite",
+    dots(1, 2, 3, 5): "rather",
+    dots(2, 3, 4): "so",
+    dots(2, 3, 4, 5): "that",
+    dots(1, 3, 6): "us",
+    dots(1, 2, 3, 6): "very",
+    dots(1, 3, 4, 6): "it",
+    dots(1, 3, 4, 5, 6): "you",
+    dots(1, 3, 5, 6): "as",
 }
 
 KNOWN_MASKS = (
@@ -107,4 +133,5 @@ KNOWN_MASKS = (
     | {CAPITAL_MASK, NUMBER_MASK}
     | set(MASK_TO_DIGIT)
     | set(COMMON_WORD_CONTRACTIONS)
+    | {48, 16, 52}  # letter indicator and percent sequence fragments
 )

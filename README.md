@@ -5,9 +5,18 @@ Braille Lens is a local Streamlit app that reads a high-quality image of six-dot
 1. OpenCV converts the image to grayscale, denoises it, and applies Otsu, adaptive, or local-contrast thresholding. Faint full-page pictures automatically retry with adaptive thresholding.
 2. OpenCV connected components find dot-sized blobs and their centroids.
 3. Dot centers are clustered into rows and six-dot cells, including visible word gaps.
-4. A small English Braille table handles Grade 1 letters, capitals, numbers, punctuation, and a few unambiguous Grade 2 whole-word contractions.
+4. A conservative English decoder handles Grade 1 letters, capitals, numbers, punctuation, and UEB whole-word Grade 2 contractions. Unknown masks remain visible as `□` instead of being guessed from language context.
 
-The project does not upload images to a third-party service. It handles clean scans and faint, full-page photographs, while camera perspective, glare, touching dots, and heavily embossed shadows may need deskewing or a learned detector in a later iteration.
+The six-dot integer convention and annotation terminology are compatible with
+[Ilya Ovodov's AngelinaDataset](https://github.com/IlyaOvodov/AngelinaDataset),
+which contains printed, handwritten, and non-Braille examples with per-cell
+labels. The dataset is not bundled or redistributed here; check its repository
+licence before using it for training or evaluation.
+
+The project does not upload images to a third-party service. It handles clean
+scans, small camera roll (automatic deskew), and faint full-page photographs.
+Recognition details report rejected components and ambiguous cells; those cells
+are preserved as `□` so a reviewer can correct the editable transcription.
 
 ## Run it
 

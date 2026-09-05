@@ -30,11 +30,17 @@ def main() -> None:
         grade=args.grade,
     )
     if args.json:
-        print(json.dumps({"text": result.text, "confidence": result.confidence, "diagnostics": result.diagnostics}))
+        print(json.dumps({
+            "text": result.text,
+            "confidence": result.confidence,
+            "warnings": result.warnings,
+            "ambiguous_cells": result.ambiguous_cells,
+            "rejected_components": result.rejected_components,
+            "diagnostics": result.diagnostics,
+        }))
     else:
         print(result.text)
 
 
 if __name__ == "__main__":
     main()
-

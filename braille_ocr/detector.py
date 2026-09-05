@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from io import BytesIO
 from math import pi, sqrt
+from math import atan2, degrees
 
 import cv2
 import numpy as np
@@ -19,6 +20,7 @@ from PIL import Image
 
 from .models import Cell, Dot, OCRConfig, OCRResult
 from .translator import decode_cells
+from .alphabet import KNOWN_MASKS
 
 
 def _to_rgb_array(image: Image.Image | np.ndarray | bytes) -> np.ndarray:
@@ -72,6 +74,36 @@ def _binary_mask(rgb: np.ndarray, config: OCRConfig) -> tuple[np.ndarray, float]
     binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
     binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
     return binary, threshold_value
+
+
+def _deskew(rgb: np.ndarray, binary: np.ndarray) -> tuple[np.ndarray, float]:
+    """Correct a small camera roll using the dominant dot-center direction."""
+    count, _, stats, centroids = cv2.connectedComponentsWithStats(binary, 8)
+    points = []
+    for i in range(1, count):
+        area = stats[i, cv2.CC_STAT_AREA]
+        w, h = stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT]
+        if area >= 4 and area <= 100000 and max(w / max(h, 1), h / max(w, 1)) < 3.2:
+            points.append(centroids[i])
+    # With very sparse text the PCA direction is dominated by the particular
+    # letters present and is not a reliable camera-roll estimate.
+    if len(points) < 12:
+        return rgb, 0.0
+    xy = np.asarray(points, dtype=np.float32)
+    _, eigenvectors, eigenvalues = cv2.PCACompute2(xy, mean=None)
+    if len(eigenvalues) < 2 or float(eigenvalues[0, 0]) < float(eigenvalues[1, 0]) * 5.0:
+        return rgb, 0.0
+    angle = degrees(atan2(float(eigenvectors[0, 1]), float(eigenvectors[0, 0])))
+    while angle <= -45:
+        angle += 90
+    while angle > 45:
+        angle -= 90
+    if abs(angle) < 0.8 or abs(angle) > 15:
+        return rgb, 0.0
+    center = (rgb.shape[1] / 2.0, rgb.shape[0] / 2.0)
+    matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(rgb, matrix, (rgb.shape[1], rgb.shape[0]), borderValue=(255, 255, 255))
+    return rotated, float(angle)
 
 
 def _cluster(values: Iterable[float], tolerance: float) -> list[float]:
@@ -285,6 +317,7 @@ def _line_cells(
         if not group_dots:
             continue
         confidence = min(1.0, 0.55 + 0.18 * row_hits)
+        uncertain = row_hits == 0 or row_hits > 6
         cells.append(
             Cell(
                 mask=mask,
@@ -293,6 +326,7 @@ def _line_cells(
                 line_index=line_index,
                 confidence=confidence,
                 dot_count=row_hits,
+                uncertain=uncertain,
             )
         )
         anchors.append(anchor)
@@ -332,9 +366,18 @@ def detect_braille(
     """Detect Braille dots in ``image`` and translate them to English."""
 
     config = config or OCRConfig()
+    if config.threshold_mode not in {"otsu", "adaptive", "local_contrast"}:
+        raise ValueError("threshold_mode must be 'otsu', 'adaptive', or 'local_contrast'")
+    if grade not in {"Grade 1", "Grade 2"}:
+        raise ValueError("grade must be 'Grade 1' or 'Grade 2'")
     mode_used = config.threshold_mode
     rgb = _to_rgb_array(image)
+    if rgb.ndim != 3 or rgb.shape[2] != 3 or min(rgb.shape[:2]) < 8:
+        raise ValueError("image is too small or is not a valid RGB image")
     binary, threshold = _binary_mask(rgb, config)
+    rgb, deskew_angle = _deskew(rgb, binary)
+    if deskew_angle:
+        binary, threshold = _binary_mask(rgb, config)
     component_count, labels, stats, centroids = cv2.connectedComponentsWithStats(
         binary, connectivity=8
     )
@@ -381,6 +424,7 @@ def detect_braille(
                 "components": int(component_count - 1),
                 "dots": 0,
                 "message": "No dot-sized connected components were found.",
+                "deskew_angle_deg": round(deskew_angle, 2),
             },
         )
 
@@ -427,10 +471,13 @@ def detect_braille(
                 "components": int(component_count - 1),
                 "dots": 0,
                 "message": "Components were found, but none matched the dot shape and size filter.",
+                "deskew_angle_deg": round(deskew_angle, 2),
             },
         )
 
     radius = float(np.median([dot.radius for dot in dots]))
+    area_values = np.asarray([dot.area for dot in dots], dtype=float)
+    area_cv = float(np.std(area_values) / max(np.mean(area_values), 1e-6))
     line_dots, line_rows, dy = _row_layout(dots, radius)
     page_dx_values: list[float] = []
     for dots_on_line in line_dots:
@@ -449,7 +496,29 @@ def detect_braille(
 
     text, translation_confidence = decode_cells(cells, grade=grade)
     geometry_confidence = float(np.mean([dot.score for dot in dots])) if dots else 0.0
-    confidence = float(max(0.0, min(1.0, 0.55 * geometry_confidence + 0.45 * translation_confidence)))
+    ambiguous_cells = [
+        index + 1 for index, cell in enumerate(cells)
+        if not cell.is_space and (cell.uncertain or cell.mask not in KNOWN_MASKS)
+    ]
+    confidence = float(max(0.0, min(1.0, 0.45 * geometry_confidence + 0.55 * translation_confidence)))
+    warnings: list[str] = []
+    if ambiguous_cells:
+        unknown_count = sum(1 for index in ambiguous_cells if cells[index - 1].mask not in KNOWN_MASKS)
+        if unknown_count:
+            warnings.append(f"{len(ambiguous_cells)} cell(s) have low geometric support; {unknown_count} could not be identified and are shown as □.")
+        else:
+            warnings.append(f"{len(ambiguous_cells)} cell(s) have low geometric support. Review those positions in the detection preview.")
+    if len(dots) < 6:
+        warnings.append("Very few dot candidates were detected; use a sharper, better-lit image.")
+    if area_cv > 0.75:
+        warnings.append("Dot sizes vary substantially; glare, shadows, or merged dots may reduce accuracy.")
+    rejected_components = max(0, int(component_count - 1 - len(dots)))
+    # Penalize confidence for measurable outliers/ambiguous cells, while
+    # keeping the raw diagnostics available for inspection.
+    outlier_ratio = rejected_components / max(component_count - 1, 1)
+    confidence *= max(0.0, 1.0 - min(0.30, 0.04 * len(ambiguous_cells) + 0.20 * outlier_ratio))
+    if rejected_components and outlier_ratio > 0.05:
+        warnings.append(f"Ignored {rejected_components} component(s) that did not match a Braille dot shape.")
 
     annotated_bgr = cv2.cvtColor(rgb.copy(), cv2.COLOR_RGB2BGR)
     for dot in dots:
@@ -481,7 +550,12 @@ def detect_braille(
         "row_pitch_px": round(float(dy), 2),
         "column_pitch_px": round(float(cell_pitch), 2),
         "median_dot_area_px": round(median_area, 2),
+        "dot_area_cv": round(area_cv, 3),
         "recognized_ratio": round(float(translation_confidence), 3),
+        "deskew_angle_deg": round(deskew_angle, 2),
+        "ambiguous_cells": len(ambiguous_cells),
+        "rejected_components": rejected_components,
+        "outlier_ratio": round(outlier_ratio, 3),
     }
     return OCRResult(
         text=text,
@@ -491,4 +565,7 @@ def detect_braille(
         annotated=annotated,
         confidence=confidence,
         diagnostics=diagnostics,
+        warnings=warnings,
+        rejected_components=rejected_components,
+        ambiguous_cells=ambiguous_cells,
     )

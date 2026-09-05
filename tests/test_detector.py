@@ -26,6 +26,13 @@ def test_inverted_photo_mode():
     assert result.text == "Test 42"
 
 
+def test_small_camera_roll_is_corrected():
+    image = render_braille("Hello world", scale=2).rotate(4, expand=True, fillcolor="white")
+    result = detect_braille(image, OCRConfig())
+    assert result.text == "Hello world"
+    assert abs(result.diagnostics["deskew_angle_deg"]) > 2
+
+
 def test_supplied_low_contrast_page_recovers_body_text():
     picture = Path(__file__).parents[1] / "t1.jpg"
     if not picture.exists():
