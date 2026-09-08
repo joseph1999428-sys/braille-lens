@@ -7,3 +7,5 @@ venv/
 .streamlit/secrets.toml
 t1_*.png
 t1.jpg
+new*.jpg
+.runtime/

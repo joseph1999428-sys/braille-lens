@@ -1,6 +1,7 @@
 from braille_ocr.alphabet import CAPITAL_MASK, DIGIT_TO_MASK, LETTER_TO_MASK, NUMBER_MASK, PUNCTUATION_TO_MASK
 from braille_ocr.models import Cell
 from braille_ocr.translator import decode_cells
+from braille_ocr.translator import translate_cells
 
 
 def test_grade_one_letters_and_capital():
@@ -58,3 +59,15 @@ def test_letter_indicator_is_silent_and_percent_after_number():
     ]
     text, _ = decode_cells(cells)
     assert text.endswith("%")
+
+
+def test_liblouis_ueb_round_trip_for_grade_two():
+    from braille_ocr.louis_engine import get_engine
+
+    engine = get_engine()
+    masks = engine.forward("The boy walked to school.", "Grade 2")
+    cells = [Cell(mask, i, 0, 0, 1.0, is_space=mask == 0) for i, mask in enumerate(masks)]
+    result = translate_cells(cells, "Grade 2")
+    assert result.engine == "Liblouis"
+    assert result.text == "The boy walked to school."
+    assert result.coverage == 1.0

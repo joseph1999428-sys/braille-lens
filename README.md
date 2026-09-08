@@ -5,7 +5,7 @@ Braille Lens is a local Streamlit app that reads a high-quality image of six-dot
 1. OpenCV converts the image to grayscale, denoises it, and applies Otsu, adaptive, or local-contrast thresholding. Faint full-page pictures automatically retry with adaptive thresholding.
 2. OpenCV connected components find dot-sized blobs and their centroids.
 3. Dot centers are clustered into rows and six-dot cells, including visible word gaps.
-4. A conservative English decoder handles Grade 1 letters, capitals, numbers, punctuation, and UEB whole-word Grade 2 contractions. Unknown masks remain visible as `□` instead of being guessed from language context.
+4. Liblouis 3.39.0 provides standards-based UEB Grade 1/2 back-translation, including contractions, indicators, punctuation, numbers, and multi-cell symbols. A small Grade 1 fallback remains available when Liblouis cannot load; unknown masks remain visible as `□` instead of being guessed.
 
 The six-dot integer convention and annotation terminology are compatible with
 [Ilya Ovodov's AngelinaDataset](https://github.com/IlyaOvodov/AngelinaDataset),
@@ -17,6 +17,21 @@ The project does not upload images to a third-party service. It handles clean
 scans, small camera roll (automatic deskew), and faint full-page photographs.
 Recognition details report rejected components and ambiguous cells; those cells
 are preserved as `□` so a reviewer can correct the editable transcription.
+
+## Translation runtime
+
+The production Docker image installs `liblouis20` and `liblouis-data` from the
+distribution repositories. On Windows, install the verified Liblouis runtime
+with:
+
+```powershell
+Set-Location D:\braille_app
+python scripts\install_liblouis.py
+```
+
+The installer verifies the SHA-256 checksum for the official Liblouis 3.39.0
+Windows x64 release before extracting it. The runtime and tables are not
+committed to this repository.
 
 ## Run it
 

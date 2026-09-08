@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 
 from .models import Cell, Dot, OCRConfig, OCRResult
-from .translator import decode_cells
+from .translator import decode_cells, translate_cells
 from .alphabet import KNOWN_MASKS
 
 
@@ -538,7 +538,8 @@ def detect_braille(
         cells.extend(line_cells)
         cell_pitch = pitch if pitch else cell_pitch
 
-    text, translation_confidence = decode_cells(cells, grade=grade)
+    translation = translate_cells(cells, grade=grade)
+    text, translation_confidence = translation.text, translation.coverage
     geometry_confidence = float(np.mean([dot.score for dot in dots])) if dots else 0.0
     ambiguous_cells = [
         index + 1 for index, cell in enumerate(cells)
@@ -546,6 +547,7 @@ def detect_braille(
     ]
     confidence = float(max(0.0, min(1.0, 0.45 * geometry_confidence + 0.55 * translation_confidence)))
     warnings: list[str] = []
+    warnings.extend(translation.warnings)
     if ambiguous_cells:
         unknown_count = sum(1 for index in ambiguous_cells if cells[index - 1].mask not in KNOWN_MASKS)
         if unknown_count:
@@ -600,6 +602,9 @@ def detect_braille(
         "ambiguous_cells": len(ambiguous_cells),
         "rejected_components": rejected_components,
         "outlier_ratio": round(outlier_ratio, 3),
+        "translation_engine": translation.engine,
+        "translation_table": translation.table,
+        "liblouis_version": translation.version,
     }
     return OCRResult(
         text=text,
