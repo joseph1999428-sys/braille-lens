@@ -132,7 +132,7 @@ if result is not None:
             "You can edit the translation before downloading it.",
             value=result.text,
             height=150,
-            key="translated_text",
+            key=f"translated_text_{st.session_state.get('result_source', 'current')}",
         )
         st.download_button(
             "Download .txt",
@@ -146,9 +146,15 @@ if result is not None:
         st.caption("Try a sharper picture, Automatic lighting, or Uneven lighting for shadows.")
 
     with st.expander("Recognition details", expanded=False):
-        st.write(f"Confidence: **{result.confidence:.0%}**")
-        st.caption("The confidence score measures dot geometry and Braille table coverage; it is not a language correction score.")
+        st.write(f"Image quality score: **{result.confidence:.0%}**")
+        st.caption("This score combines dot geometry and translation coverage. It is a review signal, not an accuracy guarantee or language correction score.")
         st.json(result.diagnostics)
+        if result.raw_braille:
+            st.text_area("Detected Braille (Unicode)", result.raw_braille, height=100, disabled=True)
+        if result.unsupported_cells:
+            st.caption(f"Unsupported cell positions: {result.unsupported_cells}")
+        if result.uncertain_cells:
+            st.caption(f"Uncertain cell positions: {result.uncertain_cells}")
         if result.annotated is not None:
             st.image(result.annotated, caption="OpenCV detection preview", use_container_width=True)
 else:

@@ -30,7 +30,7 @@ def translate_cells(cells: Iterable[Cell], grade: str = "Grade 1") -> Translatio
     if grade not in TABLES:
         raise ValueError("grade must be 'Grade 1' or 'Grade 2'")
     indexed = sorted(enumerate(cells, 1), key=lambda item: (item[1].line_index, item[1].x))
-    if any(not isinstance(c.mask, int) or not 0 <= c.mask <= 63 for _, c in indexed):
+    if any(not isinstance(c.mask, int) or isinstance(c.mask, bool) or not 0 <= c.mask <= 63 for _, c in indexed):
         raise ValueError("Cell masks must be integers in range 0..63")
     # None denotes a line boundary; source ids stay linked to the overlay.
     tokens: list[tuple[int, Cell] | None] = []
@@ -57,18 +57,10 @@ def translate_cells(cells: Iterable[Cell], grade: str = "Grade 1") -> Translatio
         if not pending:
             return
         masks = [0 if t is None or t[1].is_space else t[1].mask for t in pending]
-        # OCR commonly splits the UEB percent sign (46-356) into dot-5,
-        # dot-26, dot-356. Normalize that exact pattern before table lookup.
-        normalized = []
-        i = 0
-        while i < len(masks):
-            if i + 2 < len(masks) and masks[i:i + 3] == [16, 26, 52]:
-                normalized.extend([40, 52]); i += 3
-            elif i + 1 < len(masks) and masks[i:i + 2] == [16, 52]:
-                normalized.extend([40, 52]); i += 2
-            else:
-                normalized.append(masks[i]); i += 1
-        text, positions = engine.back_translate(normalized, grade)
+        # Pass the detected dot sequence through unchanged.  OCR uncertainty
+        # must remain visible; silently rewriting masks (for example into a
+        # percent sign) changes the user's transcription and breaks mappings.
+        text, positions = engine.back_translate(masks, grade)
         for match in UNDEFINED.finditer(text):
             source_pos = positions[match.start()] if match.start() < len(positions) else -1
             if 0 <= source_pos < len(pending):

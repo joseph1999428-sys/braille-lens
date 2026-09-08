@@ -50,15 +50,21 @@ def test_punctuation_keeps_its_symbol():
     assert confidence == 1.0
 
 
-def test_letter_indicator_is_silent_and_percent_after_number():
+def test_percent_uses_standard_ueb_sequence():
     cells = [
         Cell(NUMBER_MASK, 0, 0, 0, 1.0),
         Cell(DIGIT_TO_MASK["8"], 1, 0, 0, 1.0),
-        Cell(16, 2, 0, 0, 1.0),
+        Cell(40, 2, 0, 0, 1.0),  # dots 46
         Cell(52, 3, 0, 0, 1.0),
     ]
     text, _ = decode_cells(cells)
     assert text.endswith("%")
+
+
+def test_malformed_percent_like_sequence_is_not_repaired():
+    cells = [Cell(NUMBER_MASK, 0, 0, 0, 1.0), Cell(DIGIT_TO_MASK["8"], 1, 0, 0, 1.0), Cell(16, 2, 0, 0, 1.0), Cell(52, 3, 0, 0, 1.0)]
+    result = translate_cells(cells)
+    assert not result.text.endswith("%")
 
 
 def test_liblouis_ueb_round_trip_for_grade_two():

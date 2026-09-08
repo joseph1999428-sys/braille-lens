@@ -35,6 +35,9 @@ def main() -> None:
             "confidence": result.confidence,
             "warnings": result.warnings,
             "ambiguous_cells": result.ambiguous_cells,
+            "raw_braille": result.raw_braille,
+            "unsupported_cells": result.unsupported_cells,
+            "uncertain_cells": result.uncertain_cells,
             "rejected_components": result.rejected_components,
             "diagnostics": result.diagnostics,
         }))

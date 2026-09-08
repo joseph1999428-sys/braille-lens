@@ -598,6 +598,8 @@ def detect_braille(
         "median_dot_area_px": round(median_area, 2),
         "dot_area_cv": round(area_cv, 3),
         "recognized_ratio": round(float(translation_confidence), 3),
+        "translation_coverage": round(float(translation.coverage), 3),
+        "geometry_confidence": round(float(geometry_confidence), 3),
         "deskew_angle_deg": round(deskew_angle, 2),
         "ambiguous_cells": len(ambiguous_cells),
         "rejected_components": rejected_components,
@@ -617,4 +619,7 @@ def detect_braille(
         warnings=warnings,
         rejected_components=rejected_components,
         ambiguous_cells=ambiguous_cells,
+        raw_braille=translation.braille,
+        unsupported_cells=translation.unsupported_cells,
+        uncertain_cells=translation.uncertain_cells,
     )

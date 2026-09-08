@@ -5,7 +5,7 @@ Braille Lens is a local Streamlit app that reads a high-quality image of six-dot
 1. OpenCV converts the image to grayscale, denoises it, and applies Otsu, adaptive, or local-contrast thresholding. Faint full-page pictures automatically retry with adaptive thresholding.
 2. OpenCV connected components find dot-sized blobs and their centroids.
 3. Dot centers are clustered into rows and six-dot cells, including visible word gaps.
-4. Liblouis 3.39.0 provides standards-based UEB Grade 1/2 back-translation, including contractions, indicators, punctuation, numbers, and multi-cell symbols. A small Grade 1 fallback remains available when Liblouis cannot load; unknown masks remain visible as `□` instead of being guessed.
+4. Liblouis provides standards-based UEB Grade 1/2 back-translation, including contractions, indicators, punctuation, numbers, and multi-cell symbols. The bundled Windows runtime is 3.39.0; Linux uses the distribution package version. If Liblouis cannot load, English output is withheld and detected Braille remains visible rather than being guessed.
 
 The six-dot integer convention and annotation terminology are compatible with
 [Ilya Ovodov's AngelinaDataset](https://github.com/IlyaOvodov/AngelinaDataset),
@@ -15,8 +15,11 @@ licence before using it for training or evaluation.
 
 The project does not upload images to a third-party service. It handles clean
 scans, small camera roll (automatic deskew), and faint full-page photographs.
-Recognition details report rejected components and ambiguous cells; those cells
-are preserved as `□` so a reviewer can correct the editable transcription.
+Recognition details report rejected components, ambiguous cells, raw Unicode
+Braille, and the Liblouis table/version. Those cells are preserved as `□` so a
+reviewer can correct the editable transcription. The image quality score and
+translation coverage are separate diagnostics; neither is a claim of semantic
+accuracy.
 
 ## Translation runtime
 
@@ -78,4 +81,4 @@ braille_ocr/
 tests/                    Translation and image-pipeline regression tests
 ```
 
-The letter and punctuation masks follow the six-dot numbering used by Unicode Braille Patterns and Unified English Braille. For broader Grade 2 coverage, the translator can later be backed by the open-source [Liblouis](https://github.com/liblouis/liblouis) tables without changing the OpenCV detector interface.
+The letter and punctuation masks follow the six-dot numbering used by Unicode Braille Patterns and Unified English Braille. Liblouis is the standards database for translation; OpenCV remains responsible for image geometry and reports ambiguous or unsupported cells for review.

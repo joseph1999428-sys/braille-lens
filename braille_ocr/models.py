@@ -63,3 +63,6 @@ class OCRResult:
     warnings: list[str] = field(default_factory=list)
     rejected_components: int = 0
     ambiguous_cells: list[int] = field(default_factory=list)
+    raw_braille: str = ""
+    unsupported_cells: list[int] = field(default_factory=list)
+    uncertain_cells: list[int] = field(default_factory=list)
