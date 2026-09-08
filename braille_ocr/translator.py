@@ -27,12 +27,14 @@ def _decode_cell(mask: int, numeric: bool) -> tuple[str, bool, bool]:
 
     if numeric and mask in MASK_TO_DIGIT:
         return MASK_TO_DIGIT[mask], True, True
+    # Letter patterns take precedence over symbols that share a mask in
+    # context-sensitive UEB tables. Numeric mode is handled first above.
+    if mask in MASK_TO_LETTER:
+        return MASK_TO_LETTER[mask], True, False
     if mask in MASK_TO_PUNCTUATION:
         # Punctuation terminates a number only when it is not a decimal-style
         # separator. Keeping the state here also makes ``12,000`` natural.
         return MASK_TO_PUNCTUATION[mask], True, numeric
-    if mask in MASK_TO_LETTER:
-        return MASK_TO_LETTER[mask], True, False
     return "□", False, False
 
 

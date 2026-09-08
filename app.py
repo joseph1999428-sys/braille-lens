@@ -82,8 +82,8 @@ if source is not None:
         grade = st.selectbox(
             "English Braille",
             ("Grade 1", "Grade 2"),
-            index=1,
-            help="Grade 2 is common in printed English Braille because it uses contractions and groupsigns.",
+            index=0,
+            help="Use Grade 1 for a literal letter-by-letter transcription. Select Grade 2 only when the page uses UEB contractions.",
         )
 
     translate = st.button("Translate to English", type="primary", use_container_width=True)
@@ -124,6 +124,8 @@ if result is not None:
                 st.warning(warning)
         if result.confidence < 0.65:
             st.warning("Overall confidence is low. Retake the picture with the page flat, in focus, and evenly lit.")
+        if result.confidence < 0.8:
+            st.caption("This page may use contractions, non-English Braille, or perspective that needs manual review. The transcription below preserves uncertain cells.")
         if "□" in result.text:
             st.info("Squares mark cells that could not be read confidently. Review the image and edit the transcription before downloading.")
         edited_text = st.text_area(
