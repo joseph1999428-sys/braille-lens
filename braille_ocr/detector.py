@@ -514,6 +514,15 @@ def detect_braille(
     area_values = np.asarray([dot.area for dot in dots], dtype=float)
     area_cv = float(np.std(area_values) / max(np.mean(area_values), 1e-6))
     line_dots, line_rows, dy = _row_layout(dots, radius)
+    # Components touching the image border are commonly page edges, fingers,
+    # or camera artifacts rather than Braille. Remove tiny border-only lines
+    # before cell grouping so they cannot become a spurious first character.
+    image_height = rgb.shape[0]
+    filtered = [(ld, lr) for ld, lr in zip(line_dots, line_rows)
+                if ld and np.median([dot.y for dot in ld]) > max(radius * 2.0, 12.0)
+                and np.median([dot.y for dot in ld]) < image_height - max(radius * 2.0, 12.0)]
+    if filtered:
+        line_dots, line_rows = map(list, zip(*filtered))
     page_dx_values: list[float] = []
     for dots_on_line in line_dots:
         if len(dots_on_line) < 8:

@@ -79,7 +79,12 @@ if source is not None:
             help="Use Uneven lighting when the picture has shadows or a bright gradient.",
         )
         invert = st.checkbox("Light dots on a dark background", value=False)
-        grade = st.selectbox("English Braille", ("Grade 1", "Grade 2"))
+        grade = st.selectbox(
+            "English Braille",
+            ("Grade 1", "Grade 2"),
+            index=1,
+            help="Grade 2 is common in printed English Braille because it uses contractions and groupsigns.",
+        )
 
     translate = st.button("Translate to English", type="primary", use_container_width=True)
     if translate:
